@@ -1,4 +1,6 @@
-const API = "https://audio-tspd.onrender.com/tts";
+const API = "https://audio-tspd.onrender.com/tts"    q.options[0] = document.getElementById(`opt_${i}_0`).value;
+
+// Global Configuration aur Variables
 const logBox = document.getElementById("log");
 const category = document.getElementById("category");
 const questionsDiv = document.getElementById("questions");
@@ -6,10 +8,11 @@ const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 const audioPlayer = document.getElementById("audio");
 
-let quizData = []; // Options aur Answer ke sath data store karne ke liye
-let audioUrls = []; // Har question ke audio URL ka array
+let quizData = []; // Options aur Answer ke sath full quiz data store karne ke liye
+let audioUrls = []; // Har question ke individual audio blob URL ka array
 let videoBlob = null;
 
+// Console Style Status Logger
 function log(m) {
   const d = document.createElement("div");
   d.textContent = new Date().toLocaleTimeString() + " : " + m;
@@ -17,11 +20,11 @@ function log(m) {
   logBox.scrollTop = logBox.scrollHeight;
 }
 
-// 1. Categories load karna
+// 1. Categories Dropdown Menu Load Karna
 async function loadCategories() {
   log("Loading categories...");
   try {
-    const r = await fetch("https://opentdb.com/api_category.php");
+    const r = await fetch("https://opentdb.com");
     const j = await r.json();
     category.innerHTML = "";
     j.trivia_categories.forEach(c => {
@@ -34,14 +37,14 @@ async function loadCategories() {
 }
 loadCategories();
 
-// HTML Entities decode karne ke liye function
+// HTML Entities (जैसे &quot;, &#039;) ko normal text me badalne ke liye
 function decode(s) {
   const t = document.createElement("textarea");
   t.innerHTML = s;
   return t.value;
 }
 
-// Helper function: Options ko shuffle karne ke liye
+// Options ko random order me mix karne ke liye helper function
 function shuffleArray(array) {
   for (let i = array.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -50,13 +53,13 @@ function shuffleArray(array) {
   return array;
 }
 
-// 2. Load Quiz with 4 Options + Answer
+// 2. OpenTDB API se Questions load karna aur 4 Options set karna
 document.getElementById("loadBtn").onclick = async () => {
   const count = document.getElementById("count").value;
   log("Loading quiz with options...");
   try {
-    // type=multiple specify kiya taaki hamesha 4 options milein
-    const r = await fetch(`https://opentdb.com/api.php?amount=${count}&category=${category.value}&type=multiple`);
+    // type=multiple specify kiya hai taaki hamesha 4 options milein
+    const r = await fetch(`https://opentdb.com{count}&category=${category.value}&type=multiple`);
     const j = await r.json();
     
     if(!j.results || j.results.length === 0) {
@@ -67,7 +70,8 @@ document.getElementById("loadBtn").onclick = async () => {
     quizData = j.results.map(q => {
       let incorrect = q.incorrect_answers.map(opt => decode(opt));
       let correct = decode(q.correct_answer);
-      // Correct answer ko incorrect ke sath mila kar shuffle karna
+      
+      // Correct answer ko baki 3 options ke sath mila kar mix karna
       let allOptions = [...incorrect, correct];
       shuffleArray(allOptions);
 
@@ -85,7 +89,7 @@ document.getElementById("loadBtn").onclick = async () => {
   }
 };
 
-// UI par Editable Forms render karna
+// Screen par editable inputs/textareas banana
 function renderQuizEditor() {
   questionsDiv.innerHTML = "";
   quizData.forEach((q, i) => {
@@ -111,7 +115,7 @@ function renderQuizEditor() {
   });
 }
 
-// User agar UI me kuch badlao kare toh use sync karna
+// User agar screen par text change kare toh generate karne se pehle data sync karna
 function syncDataFromUI() {
   quizData.forEach((q, i) => {
     q.question = document.getElementById(`q_${i}`).value;
@@ -123,175 +127,4 @@ function syncDataFromUI() {
   });
 }
 
-// 3. Generate Separate Audio per Question
-document.getElementById("audioBtn").onclick = async () => {
-  if (quizData.length === 0) { log("Load questions first!"); return; }
-  syncDataFromUI();
-  audioUrls = [];
-  log("Requesting TTS separately for each question to avoid mixing...");
-
-  for (let i = 0; i < quizData.length; i++) {
-    try {
-      log(`Generating audio for Q${i+1}/${quizData.length}...`);
-      const q = quizData[i];
-      // Pura script text create karna voiceover ke liye
-      let textToSpeak = `Question number ${i+1}. ${q.question}. Option A. ${q.options[0]}. Option B. ${q.options[1]}. Option C. ${q.options[2]}. Option D. ${q.options[3]}. Think about the answer!`;
-      
-      const r = await fetch(API, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: textToSpeak })
-      });
-
-      const j = await r.json();
-      const bytes = Uint8Array.from(atob(j.audio), c => c.charCodeAt(0));
-      const blob = new Blob([bytes], { type: "audio/mp3" });
-      audioUrls.push(URL.createObjectURL(blob));
-    } catch (e) {
-      log(`Audio error on Q${i+1}: ` + e.message);
-    }
-  }
-  
-  if(audioUrls.length > 0) {
-    // Pehla audio preview ke liye player me set kar dete hain
-    audioPlayer.src = audioUrls[0];
-    log("All individual audio tracks generated successfully!");
-  }
-};
-
-// 4. YouTube Professional Slide Template Renderer (1920x1080)
-function drawSlideTemplate(qObj, n, total, state, timerProgress = 0, showAns = false) {
-  // Rich Blue-Black YouTube Gradient Background
-  let bg = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-  bg.addColorStop(0, "#1e3a8a");
-  bg.addColorStop(1, "#0f172a");
-  ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  // Top Title Bar Card
-  ctx.fillStyle = "rgba(255, 255, 255, 0.07)";
-  ctx.fillRect(50, 40, 1820, 100);
-  ctx.fillStyle = "#60a5fa";
-  ctx.font = "bold 40px Arial";
-  ctx.fillText(`QUIZ TIME • Question ${n}/${total}`, 90, 105);
-
-  // Modern White Question Box Container
-  ctx.fillStyle = "#ffffff";
-  ctx.beginPath();
-  ctx.roundRect(100, 220, 1720, 240, 20);
-  ctx.fill();
-
-  // Question Text Wrapping
-  ctx.fillStyle = "#0f172a";
-  ctx.font = "bold 48px Arial";
-  wrap(qObj.question, 140, 310, 1640, 65);
-
-  // 4 Options Layout Position Vectors
-  const positions = [
-    { x: 100, y: 520 }, { x: 980, y: 520 },
-    { x: 100, y: 700 }, { x: 980, y: 700 }
-  ];
-  const labels = ["A", "B", "C", "D"];
-
-  qObj.options.forEach((opt, idx) => {
-    let pos = positions[idx];
-    let isCorrect = opt.trim().toLowerCase() === qObj.answer.trim().toLowerCase();
-
-    if (showAns && isCorrect) {
-      ctx.fillStyle = "#10b981"; // Green for Correct
-      ctx.strokeStyle = "#22c55e";
-    } else {
-      ctx.fillStyle = "#ffffff"; // Standard option box
-      ctx.strokeStyle = "#cbd5e1";
-    }
-
-    ctx.beginPath();
-    ctx.roundRect(pos.x, pos.y, 840, 140, 15);
-    ctx.fill();
-    ctx.lineWidth = 4;
-    ctx.stroke();
-
-    // Option Label bullet
-    ctx.fillStyle = (showAns && isCorrect) ? "#ffffff" : "#2563eb";
-    ctx.font = "bold 42px Arial";
-    ctx.fillText(`${labels[idx]}:`, pos.x + 40, pos.y + 85);
-
-    // Option text string
-    ctx.fillStyle = (showAns && isCorrect) ? "#ffffff" : "#334155";
-    ctx.font = "500 38px Arial";
-    
-    // Truncate option text if too long
-    let optTxt = opt;
-    if(ctx.measureText(optTxt).width > 650) {
-        optTxt = optTxt.substring(0, 30) + "...";
-    }
-    ctx.fillText(optTxt, pos.x + 110, pos.y + 85);
-  });
-
-  // Circular Canvas Timer ring
-  if (!showAns && state === "timer") {
-    let cx = canvas.width / 2;
-    let cy = 940;
-    ctx.beginPath();
-    ctx.arc(cx, cy, 65, 0, 2 * Math.PI);
-    ctx.fillStyle = "rgba(255,255,255,0.15)";
-    ctx.fill();
-
-    ctx.beginPath();
-    ctx.arc(cx, cy, 65, -Math.PI / 2, (-Math.PI / 2) + (2 * Math.PI * timerProgress));
-    ctx.lineWidth = 12;
-    ctx.strokeStyle = "#ef4444"; // Red countdown
-    ctx.stroke();
-
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 44px Arial";
-    ctx.textAlign = "center";
-    let secondsLeft = Math.ceil(5 - (timerProgress * 5));
-    ctx.fillText(secondsLeft, cx, cy + 15);
-    ctx.textAlign = "left"; // reset
-  }
-
-  // Answer Display Alert Box at bottom
-  if (showAns) {
-    ctx.fillStyle = "#10b981";
-    ctx.font = "bold 46px Arial";
-    ctx.fillText(`✓ Correct Answer: ${qObj.answer}`, 100, 960);
-  }
-
-  // Bottom Bottom Global Progress Bar
-  ctx.fillStyle = "rgba(255,255,255,0.2)";
-  ctx.fillRect(100, 1030, 1720, 16);
-  ctx.fillStyle = "#3b82f6";
-  ctx.fillRect(100, 1030, (1720 / total) * n, 16);
-}
-
-// Custom Wrap Engine
-function wrap(text, x, y, maxW, lineH) {
-  const words = text.split(" ");
-  let line = "";
-  for (let w of words) {
-    const test = line + w + " ";
-    if (ctx.measureText(test).width > maxW) {
-      ctx.fillText(line, x, y);
-      y += lineH;
-      line = w + " ";
-    } else line = test;
-  }
-  ctx.fillText(line, x, y);
-}
-
-// 5. Generate Sync Video Process
-document.getElementById("videoBtn").onclick = async () => {
-  if (audioUrls.length === 0) { log("Generate audio first!"); return; }
-  syncDataFromUI();
-
-  const videoStream = canvas.captureStream(30);
-  const ac = new AudioContext();
-  const dest = ac.createMediaStreamDestination();
-
-  // Combine Canvas and Web Audio Node streams
-  const stream = new MediaStream([
-    ...videoStream.getVideoTracks(),
-    ...dest.stream.getAudioTracks()
-  ]);
 
